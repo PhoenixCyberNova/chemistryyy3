@@ -531,6 +531,12 @@ function ReactionResult({ rxn, heated }: { rxn: LabReaction; heated: boolean }) 
       <div className="mt-4 rounded-2xl border border-primary/25 bg-primary/8 px-4 py-3">
         <p className="text-[0.62rem] font-bold uppercase tracking-[0.18em] text-muted">Balanced equation</p>
         <p className="eq mt-1.5 text-[0.95rem] leading-relaxed text-primary">{rxn.equation}</p>
+        {rxn.alternates?.map((alt) => (
+          <div key={alt.equation} className="mt-2 border-t border-primary/15 pt-2">
+            <p className="eq text-[0.85rem] leading-relaxed text-primary/90">{alt.equation}</p>
+            {alt.note ? <p className="mt-1 text-[0.72rem] leading-relaxed text-muted">{alt.note}</p> : null}
+          </div>
+        ))}
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
