@@ -1,3 +1,5 @@
+export const VIRTUAL_LAB_BUILD = "chemvault-v3";
+
 export type ChemCategory =
   | "metals"
   | "nonmetals"
@@ -2294,17 +2296,43 @@ function reactionMatchesFlask(rxn: LabReaction, flask: Set<string>): boolean {
   return (rxn.also ?? []).some((ids) => exactReagentSet(ids, flask));
 }
 
+function isNoReaction(rxn: LabReaction): boolean {
+  return rxn.type === "No reaction" || rxn.equation === "No reaction";
+}
+
+/**
+ * When several rows share a reagent set (Cu + H₂SO₄ dilute vs hot conc.),
+ * pick by the flask condition first, then prefer a real reaction over an
+ * explicit "No reaction" note.
+ */
+function pickByCondition(hits: LabReaction[], heated: boolean): LabReaction | null {
+  if (!hits.length) return null;
+
+  const matching = hits.filter((h) => h.needsHeat === heated);
+  const realMatch = matching.find((h) => !isNoReaction(h));
+  if (realMatch) return realMatch;
+  const noneMatch = matching.find(isNoReaction);
+  if (noneMatch) return noneMatch;
+
+  if (heated) {
+    // No heat-gated row: a real room-temp reaction is still valid when heated.
+    // Never fall back to a dilute "No reaction" if a heated row was expected
+    // but missing — matching already covered that.
+    return hits.find((h) => !h.needsHeat && !isNoReaction(h)) ?? null;
+  }
+
+  // Unheated flasks must not silently run a heat-required reaction
+  // (Cu + dilute H₂SO₄ must stay "No reaction", not the conc. redox).
+  return null;
+}
+
 export function matchLabReaction(ids: string[], heated: boolean): LabReaction | null {
   if (!ids.length) return null;
   const flask = setOf(ids);
   const hits = LAB_REACTIONS.filter((rxn) => reactionMatchesFlask(rxn, flask));
-  if (!hits.length) return null;
-
-  if (heated) {
-    return hits.find((h) => h.needsHeat) ?? hits.find((h) => !h.needsHeat) ?? null;
-  }
-  return hits.find((h) => !h.needsHeat) ?? null;
+  return pickByCondition(hits, heated);
 }
+
 
 export function matchAlloy(ids: string[]): Alloy | null {
   const flask = setOf(ids);
